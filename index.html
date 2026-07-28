@@ -63,7 +63,7 @@ footer{position:fixed;bottom:0;left:0;right:0;background:var(--navy);border-top:
 .scorecard-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:28px}
 .tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 14px;position:relative;overflow:hidden}
 .tile::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
-.t-cyan::before{background:#00D4FF}.t-green::before{background:#00E676}.t-yellow::before{background:#FFD600}.t-mag::before{background:#E91E90}.t-navy::before{background:#0D1117}
+.t-cyan::before{background:#00D4FF}.t-green::before{background:#00E676}.t-yellow::before{background:#FFD600}.t-mag::before{background:#E91E90}.t-navy::before{background:#FFFFFF}
 .t-navy{background:#F0F2F7;border-color:#D0D5E0}
 .tile-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
 .tile-val{font-size:22px;font-weight:800;line-height:1}
@@ -249,23 +249,23 @@ tfoot td{background:#0D1117;color:#fff;font-weight:700;font-size:13px;padding:12
       <!-- Forecast Board page -->
       <div class="f-page active" id="f-forecast">
         <div class="ts-bar" id="tsBar"></div>
-        <div class="section-label"><span class="section-badge">Q2</span><span class="section-title">Quarter Scorecard</span></div>
+        <div class="section-label"><span class="section-badge">Q3</span><span class="section-title">Quarter Scorecard</span></div>
         <div class="scorecard-grid">
-          <div class="tile t-yellow"><div class="tile-label">Q2 Target</div><div class="tile-val v-yellow" id="q2t"></div></div>
-          <div class="tile t-cyan"><div class="tile-label">Closed Won</div><div class="tile-val v-cyan" id="q2cw"></div><div class="tile-sub">Booked Q2 to date</div></div>
+          <div class="tile t-yellow"><div class="tile-label">Q3 Target</div><div class="tile-val v-yellow" id="q2t"></div></div>
+          <div class="tile t-cyan"><div class="tile-label">Closed Won</div><div class="tile-val v-cyan" id="q2cw"></div><div class="tile-sub">Booked Q3 to date</div></div>
           <div class="tile t-green"><div class="tile-label">Open Commit</div><div class="tile-val v-green" id="q2cm"></div><div class="tile-sub">Mgr Forecasted</div></div>
           <div class="tile t-green"><div class="tile-label">Forecast</div><div class="tile-val v-green" id="q2fc"></div><div class="tile-sub">CW + Commit</div><div class="tile-pct" id="q2fcp"></div></div>
           <div class="tile t-mag"><div class="tile-label">Upside</div><div class="tile-val v-mag" id="q2up"></div><div class="tile-sub">Mgr Upside</div></div>
-          <div class="tile t-navy"><div class="tile-label">Gap to Forecast</div><div class="tile-val v-navy" id="q2gp"></div><div class="tile-sub">Target − Q2 FC</div></div>
-          <div class="tile t-navy"><div class="tile-label">Q2 Pipeline</div><div class="tile-val v-navy" id="q2pp"></div><div class="tile-sub">All open Q2 deals</div></div>
+          <div class="tile t-navy"><div class="tile-label">Gap to Forecast</div><div class="tile-val v-navy" id="q2gp"></div><div class="tile-sub">Target − Q3 FC</div></div>
+          <div class="tile t-navy"><div class="tile-label">Q3 Pipeline</div><div class="tile-val v-navy" id="q2pp"></div><div class="tile-sub">All open Q3 deals</div></div>
         </div>
         <div class="section-label"><span class="section-badge">H1</span><span class="section-title">Half-Year Scorecard</span></div>
         <div class="scorecard-grid">
           <div class="tile t-yellow"><div class="tile-label">H1 Target</div><div class="tile-val v-yellow" id="h1t"></div></div>
           <div class="tile t-cyan"><div class="tile-label">Banked</div><div class="tile-val v-cyan" id="h1bk"></div><div class="tile-sub">Q1 Actual + Q2 CW</div></div>
-          <div class="tile t-green"><div class="tile-label">Open Commit</div><div class="tile-val v-green" id="h1cm"></div><div class="tile-sub">Q2 Mgr Forecasted</div></div>
+          <div class="tile t-green"><div class="tile-label">Open Commit</div><div class="tile-val v-green" id="h1cm"></div><div class="tile-sub">Q3 Mgr Forecasted</div></div>
           <div class="tile t-green"><div class="tile-label">H1 Forecast</div><div class="tile-val v-green" id="h1fc"></div><div class="tile-sub">Banked + Commit</div><div class="tile-pct" id="h1fcp"></div></div>
-          <div class="tile t-mag"><div class="tile-label">Upside</div><div class="tile-val v-mag" id="h1up"></div><div class="tile-sub">Q2 Mgr Upside</div></div>
+          <div class="tile t-mag"><div class="tile-label">Upside</div><div class="tile-val v-mag" id="h1up"></div><div class="tile-sub">Q3 Mgr Upside</div></div>
           <div class="tile t-navy"><div class="tile-label">Gap to Forecast</div><div class="tile-val v-navy" id="h1gp"></div><div class="tile-sub">Target − H1 FC</div></div>
           <div class="tile t-navy"><div class="tile-label">H1 Pipeline</div><div class="tile-val v-navy" id="h1pp"></div><div class="tile-sub">All open deals</div></div>
         </div>
@@ -273,7 +273,7 @@ tfoot td{background:#0D1117;color:#fff;font-weight:700;font-size:13px;padding:12
         <div class="chart-wrap">
           <div class="chart-legend">
             <div class="leg"><div class="leg-dot" style="background:#6B21A8"></div>Q1 Closed Won</div>
-            <div class="leg"><div class="leg-dot" style="background:#00D4FF"></div>Q2 Closed Won</div>
+            <div class="leg"><div class="leg-dot" style="background:#00D4FF"></div>Q3 Closed Won</div>
             <div class="leg"><div class="leg-dot" style="background:#00E676"></div>Commit</div>
             <div class="leg"><div class="leg-dot" style="background:#FFD600"></div>Upside</div>
             <div class="leg"><div class="leg-dot" style="background:#94A3B8"></div>Pipeline</div>
@@ -284,7 +284,7 @@ tfoot td{background:#0D1117;color:#fff;font-weight:700;font-size:13px;padding:12
         <div class="ae-wrap">
           <table>
             <thead><tr>
-              <th>AE</th><th class="r">Q2 Closed Won</th><th class="r">Commit</th><th class="r">Upside</th><th class="r">Q2 Pipeline</th><th class="r">Total Open</th>
+              <th>AE</th><th class="r">Q3 Closed Won</th><th class="r">Commit</th><th class="r">Upside</th><th class="r">Q3 Pipeline</th><th class="r">Total Open</th>
             </tr></thead>
             <tbody id="aebody"></tbody>
             <tfoot><tr>
@@ -318,15 +318,15 @@ tfoot td{background:#0D1117;color:#fff;font-weight:700;font-size:13px;padding:12
           <div class="chg-tile lost"><div class="chg-tile-label">❌ Lost</div><div id="chg-tile-lost"></div></div>
           <div class="chg-tile new"><div class="chg-tile-label">🆕 New Commits</div><div id="chg-tile-new"></div></div>
         </div>
-        <div class="chg-waterfall"><div class="chg-waterfall-title">Q2 Commit Waterfall — Apr 1 to Today</div><div id="chg-waterfall-body"></div></div>
+        <div class="chg-waterfall"><div class="chg-waterfall-title">Q3 Commit Waterfall — Jul 1 to Today</div><div id="chg-waterfall-body"></div></div>
         <div class="chg-section">
-          <div class="chg-section-hdr"><span class="section-badge">Q2 OPENING COMMITS</span><span class="chg-section-title">10 deals committed at quarter start — what happened to each</span></div>
+          <div class="chg-section-hdr"><span class="section-badge">Q3 OPENING COMMITS</span><span class="chg-section-title">10 deals committed at quarter start — what happened to each</span></div>
           <div class="chg-table" id="chg-baseline-table"></div>
         </div>
         <div class="chg-section" id="chg-new-section">
           <div class="chg-section-hdr">
             <span class="section-badge" style="background:#E91E90">NEW COMMITS</span>
-            <span class="chg-section-title">Deals that entered commit after Q2 start</span>
+            <span class="chg-section-title">Deals that entered commit after Q3 start</span>
             <span class="chg-section-total" id="chg-new-total" style="color:#E91E90"></span>
           </div>
           <div class="chg-table" id="chg-new-table"></div>
@@ -437,7 +437,7 @@ function switchFPage(name){
 }
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────────
-const Q1A=530000,Q2T=748000,H1T=1460000,PID='23818472';
+const Q1A=530000,Q2T=964000,H1T=1460000,PID='23818472';
 const OWN={'86687817':'Bridgette Bridges','87172609':'Brett Frey','452219519':'Neil Battarbee','730668906':'Drew Siegel','754222492':'Tim Busekrus','90233713':'Patrick Hofmann'};
 const OIDS=Object.keys(OWN);
 const HS=id=>`https://app.hubspot.com/contacts/${PID}/record/0-3/${id}`;
@@ -831,7 +831,7 @@ function buildChanges(){
     <div class="wf-row"><div class="wf-label">− Slipped / Pushed</div><div class="wf-bar-area"><div class="wf-bar" style="width:${sc(totSlipped)}%;background:#FFD600">−${fl(totSlipped)}</div></div><div class="wf-val" style="color:#FFD600">−${fl(totSlipped)}</div></div>
     <div class="wf-row"><div class="wf-label">− Lost</div><div class="wf-bar-area"><div class="wf-bar" style="width:${sc(totLost)}%;background:#EF4444">−${fl(totLost)}</div></div><div class="wf-val" style="color:#EF4444">−${fl(totLost)}</div></div>
     <div class="wf-row"><div class="wf-label">+ New Commits</div><div class="wf-bar-area"><div class="wf-bar" style="width:${sc(totNew)}%;background:#E91E90">+${fl(totNew)}</div></div><div class="wf-val" style="color:#E91E90">+${fl(totNew)}</div></div>
-    <div class="wf-row"><div class="wf-label">+ Q2 Closed Won</div><div class="wf-bar-area"><div class="wf-bar" style="width:${sc(totQ2CW)}%;background:#00D4FF">+${fl(totQ2CW)}</div></div><div class="wf-val" style="color:#00D4FF">+${fl(totQ2CW)}</div></div>
+    <div class="wf-row"><div class="wf-label">+ Q3 Closed Won</div><div class="wf-bar-area"><div class="wf-bar" style="width:${sc(totQ2CW)}%;background:#00D4FF">+${fl(totQ2CW)}</div></div><div class="wf-val" style="color:#00D4FF">+${fl(totQ2CW)}</div></div>
     <hr class="wf-divider">
     <div class="wf-row"><div class="wf-label" style="font-weight:800">Current Q2 Forecast</div><div class="wf-bar-area"><div class="wf-bar" style="width:${sc(currentFC)}%;background:#00E676;color:#065F46;font-weight:800">${fl(currentFC)}</div></div><div class="wf-val" style="color:#00E676;font-weight:800">${fl(currentFC)}</div></div>`;
 
