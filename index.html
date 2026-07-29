@@ -1,4 +1,5 @@
-<!DOCTYPE html>
+const hT=(pt.fc||0)+(pt.up||0)+(pt.pipe||0);if(hT>0){const vl=document.createElement('div');vl.style.cssText='font-size:9px;font-family:"DM Mono",monospace;color:var(--t2);text-align:center;margin-bottom:2px';vl.textContent=hT>=1e6?'$'+(hT/1e6).toFixed(1)+'M':hT>=1000?'$'+Math.round(hT/1000)+'K':'$'+Math.round(hT);col.appendChild(vl);}
+    <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -467,9 +468,9 @@ select:focus,select:hover,.seg-btn:hover{border-color:var(--cyan);outline:none}
 <!-- ═══════════════════════════════════════ LEADERBOARD ════════════════ -->
 <div id="tab-leaderboard" class="panel">
   <div style="display:flex;gap:8px;margin-bottom:16px" id="lbPeriodBtns">
-    <button class="seg-btn active" data-period="qtd"  onclick="onLbPeriod(this)">QTD</button>
+    <button class="seg-btn" data-period="qtd" onclick="onLbPeriod(this)">QTD</button>
     <button class="seg-btn"        data-period="h1"   onclick="onLbPeriod(this)">H1 Actual</button>
-    <button class="seg-btn"        data-period="ytd"  onclick="onLbPeriod(this)">YTD</button>
+    <button class="seg-btn active" data-period="ytd" onclick="onLbPeriod(this)">YTD</button>
     <button class="seg-btn"        data-period="full" onclick="onLbPeriod(this)">Full Year Pace</button>
   </div>
 
@@ -541,7 +542,7 @@ let STATE = {
   quarter: "Q3",
   team: "all",
   ae: "all",
-  lbPeriod: "qtd",
+  lbPeriod: "ytd",
   histGran: "weekly",
   histStack: "category",
   deals: [],
@@ -712,9 +713,9 @@ function renderForecastBoard() {
   document.getElementById('sub-pipe').textContent     = `All open ${qShort} deals`;
 
   // YTD scorecard
-  const q1Act = qCfg.q1act || 530000;
-  const q2Cw  = 762000; // Q2 actual — hardcoded since Q2 is closed
-  const banked = q1Act + (STATE.quarter !== 'Q1' ? q2Cw : 0);
+  const q1Act=EMBEDDED_DATA.quarter.q1_actual||530000;
+  const q2Cw=EMBEDDED_DATA.quarter.q2_actual||762000;
+  const banked=STATE.quarter==='Q1'?q1Act:q1Act+q2Cw;
   const ytdTarget = STATE.quarter === 'Q3' ? 1460000 + qCfg.target : STATE.quarter === 'Q2' ? 1460000 : qCfg.target;
   const ytdFc = banked + fcAmt;
   const ytdBc = banked + fcAmt + upAmt;
@@ -810,6 +811,1504 @@ function renderTrendChart(openDeals, wonDeals) {
     addSeg(upByMonth[i],   'var(--mag)',   'Upside');
     addSeg(pipeByMonth[i], '#CBD5E1', 'Pipeline');
 
+    const cT=(i<3?q1cwByMonth[i]:0)+(i>=3?wonByMonth[i]:0)+fcByMonth[i]+upByMonth[i]+pipeByMonth[i];if(cT>0){const vl=document.createElement('div');vl.style.cssText='font-size:9px;font-family:"DM Mono",monospace;color:var(--t2);text-align:center;margin-bottom:2px';vl.textContent=cT>=1e6?'
+
+// ══════════════════════════════════════════════════════════════════════
+// AE TABLE
+// ══════════════════════════════════════════════════════════════════════
+function renderAeTable(deals, qDeals, qWon, qCfg) {
+  const acve = d => parseFloat(d.properties.acve || 0);
+  const rows = [];
+
+  activeAEs().forEach(oid => {
+    const ae = AOP[oid];
+    if (!ae) return;
+    const myDeals  = deals.filter(d => d.properties.hubspot_owner_id === oid);
+    const myQDeals = qDeals.filter(d => d.properties.hubspot_owner_id === oid);
+    const myWon    = qWon.filter(d => d.properties.hubspot_owner_id === oid);
+    const cw    = myWon.reduce((a,d) => a+acve(d), 0);
+    const fc    = myDeals.filter(d=>d.properties.mgr__forecast_category==='Manager Forecasted').reduce((a,d)=>a+acve(d),0);
+    const up    = myDeals.filter(d=>d.properties.mgr__forecast_category==='Manager Upside').reduce((a,d)=>a+acve(d),0);
+    const qp    = myQDeals.reduce((a,d)=>a+acve(d),0);
+    const total = myDeals.reduce((a,d)=>a+acve(d),0);
+    const pace  = pct(cw, ae.quota);
+    rows.push({oid, ae, cw, fc, up, qp, total, pace, maxQp: 0});
+  });
+
+  const maxQp = Math.max(...rows.map(r=>r.qp), 1);
+  const totalCw = rows.reduce((a,r)=>a+r.cw,0);
+  const totalFc = rows.reduce((a,r)=>a+r.fc,0);
+  const totalUp = rows.reduce((a,r)=>a+r.up,0);
+  const totalQp = rows.reduce((a,r)=>a+r.qp,0);
+  const totalTot = rows.reduce((a,r)=>a+r.total,0);
+  const totalQuota = rows.reduce((a,r)=>a+r.ae.quota,0);
+
+  const tbody = document.getElementById('aeBody');
+  tbody.innerHTML = rows.map(r => {
+    const barW = Math.round(r.qp / maxQp * 80);
+    const fcW  = r.qp > 0 ? Math.round(r.fc/r.qp*barW) : 0;
+    const upW  = r.qp > 0 ? Math.round(r.up/r.qp*barW) : 0;
+    const pipeW = Math.max(0, barW - fcW - upW);
+    return `<tr onclick="toggleAeDeals('${r.oid}')">
+      <td><div class="ae-name">${r.ae.short}</div><div class="ae-team">${r.ae.team}</div></td>
+      <td class="cyan">${r.cw ? fmt(r.cw) : '<span class="t3">—</span>'}</td>
+      <td class="green">${r.fc ? fmt(r.fc) : '<span class="t3">—</span>'}</td>
+      <td class="mag">${r.up ? fmt(r.up) : '<span class="t3">—</span>'}</td>
+      <td>
+        ${fmt(r.qp)}
+        <div class="mini-bar">
+          <div class="mini-seg" style="width:${fcW}px;background:var(--green)"></div>
+          <div class="mini-seg" style="width:${upW}px;background:var(--mag)"></div>
+          <div class="mini-seg" style="width:${pipeW}px;background:rgba(203,213,225,.4)"></div>
+        </div>
+      </td>
+      <td class="slate">${fmt(r.total)}</td>
+      <td>
+        <span class="${r.pace>=125?'green':r.pace>=100?'cyan':r.pace>=75?'yel':'red'}">${r.pace}%</span>
+        <div class="t3" style="font-size:10px">${fmt(r.ae.quota)} quota</div>
+      </td>
+    </tr>`;
+  }).join('') + `<tr>
+    <td><div class="ae-name">Team Total</div></td>
+    <td class="cyan">${fmt(totalCw)}</td>
+    <td class="green">${fmt(totalFc)}</td>
+    <td class="mag">${fmt(totalUp)}</td>
+    <td class="slate">${fmt(totalQp)}</td>
+    <td class="slate">${fmt(totalTot)}</td>
+    <td><span class="${pct(totalCw,totalQuota)>=100?'green':'yel'}">${pct(totalCw,totalQuota)}%</span></td>
+  </tr>`;
+}
+
+let expandedAe = null;
+function toggleAeDeals(oid) {
+  if (expandedAe === oid) { expandedAe = null; renderDealList(filterDeals(STATE.deals), QUARTERS[STATE.quarter]||QUARTERS.Q3); return; }
+  expandedAe = oid;
+  const deals = STATE.deals.filter(d => d.properties.hubspot_owner_id === oid && parseFloat(d.properties.acve||0) > 0);
+  renderDealList(deals, QUARTERS[STATE.quarter]||QUARTERS.Q3, true);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// DEAL LIST
+// ══════════════════════════════════════════════════════════════════════
+function renderDealList(deals, qCfg, aeMode=false) {
+  const acve = d => parseFloat(d.properties.acve || 0);
+  const sorted = [...deals].sort((a,b) => acve(b) - acve(a));
+  const list = document.getElementById('dealList');
+  if (!sorted.length) { list.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>No deals match current filters</div>'; return; }
+
+  list.innerHTML = sorted.map(d => {
+    const p  = d.properties;
+    const v  = acve(d);
+    const ae = AOP[p.hubspot_owner_id];
+    const cd = new Date(p.closedate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
+    const inQ3 = inQ(p.closedate, qCfg);
+    return `<div class="deal-row">
+      ${fcBadge(p.mgr__forecast_category)}
+      <div class="deal-name" title="${p.dealname}">${p.dealname}</div>
+      <div class="deal-meta">${ae ? ae.short : '—'}</div>
+      <div class="deal-cd">${cd}</div>
+      ${inQ3 ? `<span class="deal-badge" style="background:rgba(255,214,0,.1);color:var(--yel);border:1px solid rgba(255,214,0,.2);font-size:8px">Q${qCfg===QUARTERS.Q3?'3':qCfg===QUARTERS.Q2?'2':'?'}</span>` : ''}
+      <div class="deal-acve ${p.mgr__forecast_category==='Manager Forecasted'?'green':p.mgr__forecast_category==='Manager Upside'?'mag':'slate'}">${fmt(v)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// PIPELINE HISTORY CHART (snapshot-based)
+// ══════════════════════════════════════════════════════════════════════
+function renderHistoryChart() {
+  const snapshots = STATE.snapshots;
+  const chart = document.getElementById('histChart');
+  const legend = document.getElementById('histLegend');
+
+  if (!snapshots || !snapshots.length) {
+    // Build estimated data from what we know
+    const estimated = buildEstimatedHistory();
+    renderHistoryBars(estimated, chart, legend);
+    document.getElementById('histFlag').style.display = 'block';
+    document.getElementById('histFlag').innerHTML = '<strong>⚠ Snapshot data:</strong> Daily snapshots available from Apr 25, 2026. Pre-Apr figures are estimates based on Q1 actuals and opening pipeline assumptions.';
+    return;
+  }
+
+  const granData = aggregateByGranularity(snapshots, STATE.histGran);
+  renderHistoryBars(granData, chart, legend);
+}
+
+function buildEstimatedHistory() {
+  // Construct estimated monthly pipeline from known data points
+  const aes = activeAEs();
+  const deals = STATE.deals;
+
+  // Known data points:
+  // Jan 1: ~$5.18M (from skill reference data)
+  // Apr 25: ~$5.8M (Apr 25 snapshot)
+  // Jul 10: ~$4.53M (current)
+  const pts = [
+    {label:"Jan",  fc:716000,  up:875000,  pipe:3589000, note:'est'},
+    {label:"Feb",  fc:650000,  up:900000,  pipe:3500000, note:'est'},
+    {label:"Mar",  fc:580000,  up:850000,  pipe:3200000, note:'est'},
+    {label:"Apr",  fc:800000,  up:1100000, pipe:3900000, note:'est'},
+    {label:"May",  fc:600000,  up:950000,  pipe:3400000, note:'est'},
+    {label:"Jun",  fc:400000,  up:800000,  pipe:2800000, note:'snapshot'},
+    {label:"Jul",  fc:333000,  up:1474000, pipe:2726000, note:'live'},
+  ];
+
+  return pts;
+}
+
+function renderHistoryBars(data, chart, legend) {
+  const stackDef = {
+    category: [
+      {key:'fc',   label:'Commit',  color:'var(--green)'},
+      {key:'up',   label:'Upside',  color:'var(--mag)'},
+      {key:'pipe', label:'Pipeline',color:'rgba(203,213,225,.4)'},
+    ],
+  }[STATE.histStack] || [
+    {key:'fc',   label:'Commit',  color:'var(--green)'},
+    {key:'up',   label:'Upside',  color:'var(--mag)'},
+    {key:'pipe', label:'Pipeline',color:'rgba(203,213,225,.4)'},
+  ];
+
+  const maxVal = Math.max(...data.map(d => (d.fc||0)+(d.up||0)+(d.pipe||0)), 1);
+  const H = 220;
+  chart.innerHTML = '';
+
+  data.forEach(pt => {
+    const col = document.createElement('div');
+    col.className = 'hist-col';
+    col.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end';
+    const stack = document.createElement('div');
+    stack.style.cssText = `width:80%;display:flex;flex-direction:column-reverse;position:relative`;
+    if (pt.note === 'est') { stack.style.opacity = '0.6'; stack.title = 'Estimated'; }
+
+    stackDef.forEach(s => {
+      const v = pt[s.key] || 0;
+      if (!v) return;
+      const h = Math.max(2, Math.round(v/maxVal*H));
+      const seg = document.createElement('div');
+      seg.style.cssText = `height:${h}px;background:${s.color};width:100%`;
+      seg.title = `${pt.label} ${s.label}: ${fmt(v)}`;
+      stack.appendChild(seg);
+    });
+
+    const lbl = document.createElement('div');
+    lbl.className = 'hist-lbl';
+    lbl.textContent = pt.label;
+    if (pt.note === 'est') { lbl.style.color = 'var(--t3)'; lbl.textContent += '*'; }
+    col.appendChild(stack);
+    col.appendChild(lbl);
+    chart.appendChild(col);
+  });
+
+  legend.innerHTML = stackDef.map(s =>
+    `<span><span class="prog-dot" style="background:${s.color}"></span>${s.label}</span>`
+  ).join('') + '<span style="color:var(--t3);font-size:9px">  * estimated</span>';
+}
+
+function aggregateByGranularity(snapshots, gran) {
+  // Group snapshot data by week/month/quarter
+  // snapshots format: {date, forecasted, upside, pipeline, by_ae: {}}
+  const aes = activeAEs();
+  const grouped = {};
+
+  snapshots.forEach(s => {
+    const d = new Date(s.date);
+    let key;
+    if (gran === 'monthly') key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    else if (gran === 'quarterly') key = `${d.getFullYear()}-Q${Math.ceil((d.getMonth()+1)/3)}`;
+    else { const wk = Math.ceil(d.getDate()/7); key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-W${wk}`; }
+
+    if (!grouped[key]) grouped[key] = {label:key.replace(/\d{4}-0?/,'').replace('-W','/W'), fc:0, up:0, pipe:0, count:0};
+    const g = grouped[key];
+    // Sum across filtered AEs
+    aes.forEach(oid => {
+      const ae = s.by_ae?.[oid];
+      if (ae) { g.fc += ae.fc||0; g.up += ae.up||0; g.pipe += ae.pipe||0; }
+    });
+    g.count++;
+  });
+
+  // Average within each bucket
+  return Object.values(grouped).map(g => ({
+    ...g, fc: g.fc/Math.max(g.count,1), up: g.up/Math.max(g.count,1), pipe: g.pipe/Math.max(g.count,1)
+  }));
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// PIPELINE WATERFALL (true bridge)
+// ══════════════════════════════════════════════════════════════════════
+function renderWaterfall() {
+  const wf = STATE.waterfallData;
+  const chart = document.getElementById('wfChart');
+  const legend = document.getElementById('wfLegend');
+  const flags = document.getElementById('wfFlags');
+
+  if (!wf) {
+    // Build from what we know (current data vs Apr 25 estimates)
+    const data = buildEstimatedWaterfall();
+    drawBridgeWaterfall(chart, legend, data);
+    flags.innerHTML = '<div class="flag"><strong>⚠ Pre-computed waterfall:</strong> Full daily diff data available from Apr 25. The PA flow will append waterfall deltas nightly once v11 is live. Current figures are estimated from snapshot data.</div>';
+    return;
+  }
+
+  const from = document.getElementById('wfFrom').value;
+  const to   = document.getElementById('wfTo').value === 'today' ? new Date().toISOString().slice(0,10) : document.getElementById('wfTo').value;
+  const aes  = activeAEs();
+
+  // Filter waterfall records to date range and AE scope
+  const filtered = wf.filter(r => r.date >= from && r.date <= to);
+  const data = aggregateWaterfallRecords(filtered, aes);
+  drawBridgeWaterfall(chart, legend, data);
+  flags.innerHTML = '';
+}
+
+function buildEstimatedWaterfall() {
+  // Estimated waterfall: Apr 25 opening → today (Jul 16)
+  // Based on known pipeline sizes at key dates
+  return {
+    starting:  5800000,  // Apr 25 snapshot estimate
+    new:        850000,  // New deals added Apr 25 → Jul 16
+    increased:  120000,  // Value increases
+    decreased: -280000,  // Value decreases / pushes
+    won:       -762000,  // Q2 Closed Won
+    lost:      -200000,  // Closed Lost
+    ending:    5528000,  // Would be ~4.53M — actual open on Jul 16
+  };
+}
+
+function aggregateWaterfallRecords(records, aes) {
+  const out = {starting:0, new:0, increased:0, decreased:0, won:0, lost:0, ending:0};
+  if (!records.length) return out;
+  out.starting = records[0].starting_team || 0;
+  records.forEach(r => {
+    const byAe = r.by_ae || {};
+    aes.forEach(oid => {
+      const ae = byAe[oid] || {};
+      out.new       += ae.new       || 0;
+      out.increased += ae.increased || 0;
+      out.decreased += ae.decreased || 0;
+      out.won       += ae.won       || 0;
+      out.lost      += ae.lost      || 0;
+    });
+  });
+  out.ending = out.starting + out.new + out.increased + out.decreased + out.won + out.lost;
+  return out;
+}
+
+function drawBridgeWaterfall(chart, legend, data) {
+  // Bridge waterfall: each bar floats on a transparent spacer
+  const bars = [
+    {label:'Starting
+Pipeline', val:data.starting, color:'var(--slate)',     base:0, isTotal:true},
+    {label:'New
+Deals',         val:data.new,       color:'var(--green)',     base:data.starting},
+    {label:'Value
+Increase',    val:data.increased, color:'var(--green)',     base:data.starting+data.new},
+    {label:'Value
+Decrease',    val:data.decreased, color:'var(--red)',       base:data.starting+data.new+data.increased+data.decreased},
+    {label:'Closed
+Won',        val:data.won,       color:'var(--cyan)',      base:data.starting+data.new+data.increased+data.decreased+data.won},
+    {label:'Closed
+Lost',       val:data.lost,      color:'var(--red)',       base:data.starting+data.new+data.increased+data.decreased+data.won+data.lost},
+    {label:'Current
+Pipeline',  val:data.ending,    color:'var(--slate)',     base:0, isTotal:true},
+  ];
+
+  const maxVal = Math.max(...bars.map(b => b.isTotal ? b.val : b.base + Math.abs(b.val)), 1);
+  const H = 200;
+  chart.innerHTML = '';
+  chart.style.cssText = 'display:flex;align-items:flex-end;gap:4px;height:230px;padding-bottom:20px;overflow-x:auto;min-width:500px';
+
+  bars.forEach(b => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'flex:1;min-width:70px;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;position:relative';
+
+    const absVal = Math.abs(b.val);
+    const barH   = Math.max(4, Math.round(absVal / maxVal * H));
+    const spacerH = b.isTotal ? 0 : Math.round(Math.min(b.base, maxVal) / maxVal * H);
+
+    const inner = document.createElement('div');
+    inner.style.cssText = 'width:80%;display:flex;flex-direction:column;justify-content:flex-end';
+
+    if (!b.isTotal && spacerH > 0) {
+      const spacer = document.createElement('div');
+      spacer.style.cssText = `height:${spacerH}px;width:100%;background:transparent`;
+      inner.appendChild(spacer);
+    }
+
+    const bar = document.createElement('div');
+    bar.style.cssText = `height:${barH}px;width:100%;background:${b.color};border-radius:3px ${b.isTotal?'3px':'0'} 0 0;`;
+    bar.title = `${b.label.replace('
+',' ')}: ${fmt(Math.abs(b.val))}`;
+
+    const valLbl = document.createElement('div');
+    valLbl.style.cssText = 'font-size:9px;font-family:"DM Mono",monospace;color:var(--t2);text-align:center;margin-bottom:2px;white-space:nowrap';
+    valLbl.textContent = (b.val < 0 ? '−' : b.val > 0 && !b.isTotal ? '+' : '') + fmt(Math.abs(b.val));
+
+    inner.appendChild(valLbl);
+    inner.appendChild(bar);
+    wrap.appendChild(inner);
+
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'font-size:9px;color:var(--t3);text-align:center;margin-top:4px;line-height:1.3;white-space:pre-line;position:absolute;bottom:0';
+    lbl.textContent = b.label;
+    wrap.appendChild(lbl);
+    chart.appendChild(wrap);
+  });
+
+  legend.innerHTML = [
+    ['var(--slate)','Total Pipeline'],['var(--green)','Additions / Increases'],
+    ['var(--red)','Decreases / Lost'],['var(--cyan)','Closed Won'],
+  ].map(([c,l])=>`<div class="wf-leg-item"><div class="wf-leg-dot" style="background:${c}"></div>${l}</div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// COMMIT WATERFALL (existing deal-level waterfall)
+// ══════════════════════════════════════════════════════════════════════
+function renderCommitWaterfall() {
+  const qCfg = QUARTERS[STATE.quarter] || QUARTERS.Q3;
+  const deals = filterDeals(STATE.deals);
+  const won   = filterDeals(STATE.won.map ? STATE.won : []);
+  const acve  = d => parseFloat(d.properties.acve || 0);
+
+  const qDeals = deals.filter(d => inQ(d.properties.closedate, qCfg));
+  const qWon   = won.filter(d => inQ(d.properties.closedate, qCfg));
+  const qLost  = STATE.deals.filter(d =>
+    d.properties.dealstage === 'closedlost' &&
+    filterDeals([d]).length &&
+    inQ(d.properties.closedate, qCfg)
+  );
+
+  const committed   = deals.filter(d => d.properties.mgr__forecast_category === 'Manager Forecasted');
+  const upside      = deals.filter(d => d.properties.mgr__forecast_category === 'Manager Upside');
+  const wonAmt      = qWon.reduce((a,d)=>a+acve(d),0);
+  const lostAmt     = qLost.reduce((a,d)=>a+acve(d),0);
+  const fcAmt       = committed.reduce((a,d)=>a+acve(d),0);
+  const upAmt       = upside.reduce((a,d)=>a+acve(d),0);
+  const pipeAmt     = qDeals.reduce((a,d)=>a+acve(d),0);
+
+  document.getElementById('ct-committed').textContent = fmt(fcAmt);
+  document.getElementById('ct-bestcase').textContent  = fmt(fcAmt+upAmt);
+  document.getElementById('ct-pipeline').textContent  = fmt(pipeAmt);
+  document.getElementById('ct-won').textContent       = fmt(wonAmt);
+  document.getElementById('ct-lost').textContent      = fmt(lostAmt || 0);
+
+  document.getElementById('wf-badge').textContent  = STATE.quarter;
+  document.getElementById('qwf-title').textContent = `${qCfg.label} Commit Waterfall — ${STATE.quarter === 'Q3' ? 'Jul 1' : STATE.quarter === 'Q2' ? 'Apr 1' : 'Jan 1'} to Today`;
+
+  // Opening commits (from discrete-core baseline for Q2/Q3)
+  const openingCommits = getOpeningCommits(STATE.quarter);
+  const commitDeals = document.getElementById('commitDeals');
+  commitDeals.innerHTML = openingCommits.length
+    ? openingCommits.map(d => `<div class="deal-row">
+        <span class="deal-badge bd-fc">COMMIT</span>
+        <div class="deal-name">${d.name}</div>
+        <div class="deal-meta">${d.ae}</div>
+        <div class="deal-acve green">${fmt(d.acve)}</div>
+      </div>`).join('')
+    : '<div class="empty"><div class="empty-icon">📋</div>No opening commit data for this quarter</div>';
+
+  // New commits (deals entered commit after quarter start)
+  const newCommits = committed.filter(d => {
+    const created = new Date(d.createdAt || d.updatedAt || d.properties.closedate);
+    return created >= new Date(qCfg.start);
+  });
+  const newCommitEl = document.getElementById('newCommitDeals');
+  newCommitEl.innerHTML = newCommits.length
+    ? newCommits.sort((a,b)=>acve(b)-acve(a)).map(d => {
+        const ae = AOP[d.properties.hubspot_owner_id];
+        return `<div class="deal-row">
+          ${fcBadge(d.properties.mgr__forecast_category)}
+          <div class="deal-name">${d.properties.dealname}</div>
+          <div class="deal-meta">${ae?ae.short:'—'}</div>
+          <div class="deal-acve green">${fmt(acve(d))}</div>
+        </div>`;
+      }).join('')
+    : '<div class="empty"><div class="empty-icon">🆕</div>No new commits added yet this quarter</div>';
+}
+
+function getOpeningCommits(quarter) {
+  if (quarter === 'Q2') return [
+    {name:'Safran SAO BAU',               ae:'Neil',  acve:300000},
+    {name:'Curtiss-Wright — Williams',    ae:'Drew',  acve:90000},
+    {name:'Worthen Industries',           ae:'Drew',  acve:85333},
+    {name:'Sigmund Cohn — NAV to BC',     ae:'Bridgette',acve:40000},
+    {name:'WindowRama — Material Trace',  ae:'Neil',  acve:37093},
+    {name:'Vacco Industries — MT',        ae:'Brett', acve:28869},
+    {name:'Loenbro — Tekla MT',           ae:'Brett', acve:24000},
+    {name:'Teadit N.A. — 5 Mgmt Seats',  ae:'Drew',  acve:6842},
+    {name:'Nasco Steel — MT Tekla',       ae:'Brett', acve:5176},
+  ];
+  if (quarter === 'Q3') return [
+    {name:'Safran SAO BAU',                    ae:'Neil',  acve:300000},
+    {name:'North Texas Tollway Authority MT',  ae:'Brett', acve:29840},
+    {name:'TRAD Bartender Print Seats',        ae:'Patrick',acve:3220},
+  ];
+  return [];
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// LEADERBOARD
+// ══════════════════════════════════════════════════════════════════════
+function renderLeaderboard() {
+  const won   = filterDeals(STATE.won.map ? STATE.won : []);
+  const acve  = d => parseFloat(d.properties.acve || 0);
+  const aes   = activeAEs();
+
+  // Calculate CW by period
+  const q1won = won.filter(d => inQ(d.properties.closedate, QUARTERS.Q1));
+  const q2won = won.filter(d => inQ(d.properties.closedate, QUARTERS.Q2));
+  const q3won = won.filter(d => inQ(d.properties.closedate, QUARTERS.Q3));
+  const q4won = won.filter(d => inQ(d.properties.closedate, QUARTERS.Q4));
+
+  const H1_ACT={"452219519":548882,"87172609":111699,"90233713":0,"86687817":0,"754222492":0,"730668906":175333};
+  const rows=aes.map(oid=>{
+    const ae=AOP[oid];
+    if(!ae)return null;
+    let cwAmt=0;
+    const q3cwAe=q3won.filter(d=>d.properties.hubspot_owner_id===oid).reduce((a,d)=>a+acve(d),0);
+    if(STATE.lbPeriod==='qtd')cwAmt=q3cwAe;
+    else if(STATE.lbPeriod==='h1')cwAmt=H1_ACT[oid]||0;
+    else if(STATE.lbPeriod==='ytd')cwAmt=(H1_ACT[oid]||0)+q3cwAe;
+    else{const ytd=(H1_ACT[oid]||0)+q3cwAe;cwAmt=Math.round(ytd*(365/210));
+    }
+    return {oid, ae, cwAmt, pct: pct(cwAmt, ae.quota), gap: Math.max(0, ae.quota-cwAmt), pclub: Math.max(0, ae.quota*1.25-cwAmt)};
+  }).filter(Boolean).sort((a,b) => b.cwAmt - a.cwAmt);
+
+  // Add rank
+  const tbody = document.getElementById('lbBody');
+  const medals = ['🥇','🥈','🥉'];
+  tbody.innerHTML = rows.map((r,i) => `<tr>
+    <td>${medals[i]||i+1}</td>
+    <td><div class="ae-name">${r.ae.name}</div><div class="ae-team">${r.ae.team}</div></td>
+    <td class="cyan mono">${fmt(r.cwAmt)}</td>
+    <td class="t2 mono">${fmt(r.ae.quota)}</td>
+    <td><span class="${r.pct>=125?'green':r.pct>=100?'cyan':r.pct>=75?'yel':'red'} mono">${r.pct}%</span>
+      <div style="background:var(--bg3);border-radius:3px;height:4px;width:80px;margin-top:3px;overflow:hidden">
+        <div style="height:100%;width:${Math.min(r.pct,130)}%;background:${r.pct>=125?'var(--green)':r.pct>=100?'var(--cyan)':r.pct>=75?'var(--yel)':'var(--red)'}"></div>
+      </div>
+    </td>
+    <td class="${r.gap?'red t2':'green'} mono">${r.gap ? '−'+fmt(r.gap) : '✓ Done'}</td>
+    <td class="${r.pclub?'t2':'green'} mono">${r.pclub ? '−'+fmt(r.pclub) : '✓ Qualified'}</td>
+  </tr>`).join('');
+
+  // P-Club section
+  const pclubEl = document.getElementById('pclub-list');
+  const qualified = rows.filter(r => r.pct >= 125);
+  const onTrack   = rows.filter(r => r.pct >= 75 && r.pct < 125);
+  pclubEl.innerHTML = (qualified.length ? `<div style="font-size:10px;color:var(--green);margin-bottom:8px;font-weight:600">✓ QUALIFIED</div>` + qualified.map(r=>`<div class="pclub-ae"><span>${r.ae.short}</span><span class="green">${r.pct}%</span></div>`).join('') : '') +
+    (onTrack.length ? `<div style="font-size:10px;color:var(--yel);margin:8px 0;font-weight:600">ON TRACK</div>` + onTrack.map(r=>`<div class="pclub-ae"><span>${r.ae.short}</span><span class="yel">${r.pct}%</span></div>`).join('') : '') +
+    (!qualified.length && !onTrack.length ? '<div style="color:var(--t3);font-size:11px;padding:12px 0">No reps at P-Club pace yet</div>' : '');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  loadData();
+});
+</script>
+</body>
+</html>
++(cT/1e6).toFixed(1)+'M':cT>=1000?'
+
+// ══════════════════════════════════════════════════════════════════════
+// AE TABLE
+// ══════════════════════════════════════════════════════════════════════
+function renderAeTable(deals, qDeals, qWon, qCfg) {
+  const acve = d => parseFloat(d.properties.acve || 0);
+  const rows = [];
+
+  activeAEs().forEach(oid => {
+    const ae = AOP[oid];
+    if (!ae) return;
+    const myDeals  = deals.filter(d => d.properties.hubspot_owner_id === oid);
+    const myQDeals = qDeals.filter(d => d.properties.hubspot_owner_id === oid);
+    const myWon    = qWon.filter(d => d.properties.hubspot_owner_id === oid);
+    const cw    = myWon.reduce((a,d) => a+acve(d), 0);
+    const fc    = myDeals.filter(d=>d.properties.mgr__forecast_category==='Manager Forecasted').reduce((a,d)=>a+acve(d),0);
+    const up    = myDeals.filter(d=>d.properties.mgr__forecast_category==='Manager Upside').reduce((a,d)=>a+acve(d),0);
+    const qp    = myQDeals.reduce((a,d)=>a+acve(d),0);
+    const total = myDeals.reduce((a,d)=>a+acve(d),0);
+    const pace  = pct(cw, ae.quota);
+    rows.push({oid, ae, cw, fc, up, qp, total, pace, maxQp: 0});
+  });
+
+  const maxQp = Math.max(...rows.map(r=>r.qp), 1);
+  const totalCw = rows.reduce((a,r)=>a+r.cw,0);
+  const totalFc = rows.reduce((a,r)=>a+r.fc,0);
+  const totalUp = rows.reduce((a,r)=>a+r.up,0);
+  const totalQp = rows.reduce((a,r)=>a+r.qp,0);
+  const totalTot = rows.reduce((a,r)=>a+r.total,0);
+  const totalQuota = rows.reduce((a,r)=>a+r.ae.quota,0);
+
+  const tbody = document.getElementById('aeBody');
+  tbody.innerHTML = rows.map(r => {
+    const barW = Math.round(r.qp / maxQp * 80);
+    const fcW  = r.qp > 0 ? Math.round(r.fc/r.qp*barW) : 0;
+    const upW  = r.qp > 0 ? Math.round(r.up/r.qp*barW) : 0;
+    const pipeW = Math.max(0, barW - fcW - upW);
+    return `<tr onclick="toggleAeDeals('${r.oid}')">
+      <td><div class="ae-name">${r.ae.short}</div><div class="ae-team">${r.ae.team}</div></td>
+      <td class="cyan">${r.cw ? fmt(r.cw) : '<span class="t3">—</span>'}</td>
+      <td class="green">${r.fc ? fmt(r.fc) : '<span class="t3">—</span>'}</td>
+      <td class="mag">${r.up ? fmt(r.up) : '<span class="t3">—</span>'}</td>
+      <td>
+        ${fmt(r.qp)}
+        <div class="mini-bar">
+          <div class="mini-seg" style="width:${fcW}px;background:var(--green)"></div>
+          <div class="mini-seg" style="width:${upW}px;background:var(--mag)"></div>
+          <div class="mini-seg" style="width:${pipeW}px;background:rgba(203,213,225,.4)"></div>
+        </div>
+      </td>
+      <td class="slate">${fmt(r.total)}</td>
+      <td>
+        <span class="${r.pace>=125?'green':r.pace>=100?'cyan':r.pace>=75?'yel':'red'}">${r.pace}%</span>
+        <div class="t3" style="font-size:10px">${fmt(r.ae.quota)} quota</div>
+      </td>
+    </tr>`;
+  }).join('') + `<tr>
+    <td><div class="ae-name">Team Total</div></td>
+    <td class="cyan">${fmt(totalCw)}</td>
+    <td class="green">${fmt(totalFc)}</td>
+    <td class="mag">${fmt(totalUp)}</td>
+    <td class="slate">${fmt(totalQp)}</td>
+    <td class="slate">${fmt(totalTot)}</td>
+    <td><span class="${pct(totalCw,totalQuota)>=100?'green':'yel'}">${pct(totalCw,totalQuota)}%</span></td>
+  </tr>`;
+}
+
+let expandedAe = null;
+function toggleAeDeals(oid) {
+  if (expandedAe === oid) { expandedAe = null; renderDealList(filterDeals(STATE.deals), QUARTERS[STATE.quarter]||QUARTERS.Q3); return; }
+  expandedAe = oid;
+  const deals = STATE.deals.filter(d => d.properties.hubspot_owner_id === oid && parseFloat(d.properties.acve||0) > 0);
+  renderDealList(deals, QUARTERS[STATE.quarter]||QUARTERS.Q3, true);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// DEAL LIST
+// ══════════════════════════════════════════════════════════════════════
+function renderDealList(deals, qCfg, aeMode=false) {
+  const acve = d => parseFloat(d.properties.acve || 0);
+  const sorted = [...deals].sort((a,b) => acve(b) - acve(a));
+  const list = document.getElementById('dealList');
+  if (!sorted.length) { list.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>No deals match current filters</div>'; return; }
+
+  list.innerHTML = sorted.map(d => {
+    const p  = d.properties;
+    const v  = acve(d);
+    const ae = AOP[p.hubspot_owner_id];
+    const cd = new Date(p.closedate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
+    const inQ3 = inQ(p.closedate, qCfg);
+    return `<div class="deal-row">
+      ${fcBadge(p.mgr__forecast_category)}
+      <div class="deal-name" title="${p.dealname}">${p.dealname}</div>
+      <div class="deal-meta">${ae ? ae.short : '—'}</div>
+      <div class="deal-cd">${cd}</div>
+      ${inQ3 ? `<span class="deal-badge" style="background:rgba(255,214,0,.1);color:var(--yel);border:1px solid rgba(255,214,0,.2);font-size:8px">Q${qCfg===QUARTERS.Q3?'3':qCfg===QUARTERS.Q2?'2':'?'}</span>` : ''}
+      <div class="deal-acve ${p.mgr__forecast_category==='Manager Forecasted'?'green':p.mgr__forecast_category==='Manager Upside'?'mag':'slate'}">${fmt(v)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// PIPELINE HISTORY CHART (snapshot-based)
+// ══════════════════════════════════════════════════════════════════════
+function renderHistoryChart() {
+  const snapshots = STATE.snapshots;
+  const chart = document.getElementById('histChart');
+  const legend = document.getElementById('histLegend');
+
+  if (!snapshots || !snapshots.length) {
+    // Build estimated data from what we know
+    const estimated = buildEstimatedHistory();
+    renderHistoryBars(estimated, chart, legend);
+    document.getElementById('histFlag').style.display = 'block';
+    document.getElementById('histFlag').innerHTML = '<strong>⚠ Snapshot data:</strong> Daily snapshots available from Apr 25, 2026. Pre-Apr figures are estimates based on Q1 actuals and opening pipeline assumptions.';
+    return;
+  }
+
+  const granData = aggregateByGranularity(snapshots, STATE.histGran);
+  renderHistoryBars(granData, chart, legend);
+}
+
+function buildEstimatedHistory() {
+  // Construct estimated monthly pipeline from known data points
+  const aes = activeAEs();
+  const deals = STATE.deals;
+
+  // Known data points:
+  // Jan 1: ~$5.18M (from skill reference data)
+  // Apr 25: ~$5.8M (Apr 25 snapshot)
+  // Jul 10: ~$4.53M (current)
+  const pts = [
+    {label:"Jan",  fc:716000,  up:875000,  pipe:3589000, note:'est'},
+    {label:"Feb",  fc:650000,  up:900000,  pipe:3500000, note:'est'},
+    {label:"Mar",  fc:580000,  up:850000,  pipe:3200000, note:'est'},
+    {label:"Apr",  fc:800000,  up:1100000, pipe:3900000, note:'est'},
+    {label:"May",  fc:600000,  up:950000,  pipe:3400000, note:'est'},
+    {label:"Jun",  fc:400000,  up:800000,  pipe:2800000, note:'snapshot'},
+    {label:"Jul",  fc:333000,  up:1474000, pipe:2726000, note:'live'},
+  ];
+
+  return pts;
+}
+
+function renderHistoryBars(data, chart, legend) {
+  const stackDef = {
+    category: [
+      {key:'fc',   label:'Commit',  color:'var(--green)'},
+      {key:'up',   label:'Upside',  color:'var(--mag)'},
+      {key:'pipe', label:'Pipeline',color:'rgba(203,213,225,.4)'},
+    ],
+  }[STATE.histStack] || [
+    {key:'fc',   label:'Commit',  color:'var(--green)'},
+    {key:'up',   label:'Upside',  color:'var(--mag)'},
+    {key:'pipe', label:'Pipeline',color:'rgba(203,213,225,.4)'},
+  ];
+
+  const maxVal = Math.max(...data.map(d => (d.fc||0)+(d.up||0)+(d.pipe||0)), 1);
+  const H = 220;
+  chart.innerHTML = '';
+
+  data.forEach(pt => {
+    const col = document.createElement('div');
+    col.className = 'hist-col';
+    col.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end';
+    const stack = document.createElement('div');
+    stack.style.cssText = `width:80%;display:flex;flex-direction:column-reverse;position:relative`;
+    if (pt.note === 'est') { stack.style.opacity = '0.6'; stack.title = 'Estimated'; }
+
+    stackDef.forEach(s => {
+      const v = pt[s.key] || 0;
+      if (!v) return;
+      const h = Math.max(2, Math.round(v/maxVal*H));
+      const seg = document.createElement('div');
+      seg.style.cssText = `height:${h}px;background:${s.color};width:100%`;
+      seg.title = `${pt.label} ${s.label}: ${fmt(v)}`;
+      stack.appendChild(seg);
+    });
+
+    const lbl = document.createElement('div');
+    lbl.className = 'hist-lbl';
+    lbl.textContent = pt.label;
+    if (pt.note === 'est') { lbl.style.color = 'var(--t3)'; lbl.textContent += '*'; }
+    col.appendChild(stack);
+    col.appendChild(lbl);
+    chart.appendChild(col);
+  });
+
+  legend.innerHTML = stackDef.map(s =>
+    `<span><span class="prog-dot" style="background:${s.color}"></span>${s.label}</span>`
+  ).join('') + '<span style="color:var(--t3);font-size:9px">  * estimated</span>';
+}
+
+function aggregateByGranularity(snapshots, gran) {
+  // Group snapshot data by week/month/quarter
+  // snapshots format: {date, forecasted, upside, pipeline, by_ae: {}}
+  const aes = activeAEs();
+  const grouped = {};
+
+  snapshots.forEach(s => {
+    const d = new Date(s.date);
+    let key;
+    if (gran === 'monthly') key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    else if (gran === 'quarterly') key = `${d.getFullYear()}-Q${Math.ceil((d.getMonth()+1)/3)}`;
+    else { const wk = Math.ceil(d.getDate()/7); key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-W${wk}`; }
+
+    if (!grouped[key]) grouped[key] = {label:key.replace(/\d{4}-0?/,'').replace('-W','/W'), fc:0, up:0, pipe:0, count:0};
+    const g = grouped[key];
+    // Sum across filtered AEs
+    aes.forEach(oid => {
+      const ae = s.by_ae?.[oid];
+      if (ae) { g.fc += ae.fc||0; g.up += ae.up||0; g.pipe += ae.pipe||0; }
+    });
+    g.count++;
+  });
+
+  // Average within each bucket
+  return Object.values(grouped).map(g => ({
+    ...g, fc: g.fc/Math.max(g.count,1), up: g.up/Math.max(g.count,1), pipe: g.pipe/Math.max(g.count,1)
+  }));
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// PIPELINE WATERFALL (true bridge)
+// ══════════════════════════════════════════════════════════════════════
+function renderWaterfall() {
+  const wf = STATE.waterfallData;
+  const chart = document.getElementById('wfChart');
+  const legend = document.getElementById('wfLegend');
+  const flags = document.getElementById('wfFlags');
+
+  if (!wf) {
+    // Build from what we know (current data vs Apr 25 estimates)
+    const data = buildEstimatedWaterfall();
+    drawBridgeWaterfall(chart, legend, data);
+    flags.innerHTML = '<div class="flag"><strong>⚠ Pre-computed waterfall:</strong> Full daily diff data available from Apr 25. The PA flow will append waterfall deltas nightly once v11 is live. Current figures are estimated from snapshot data.</div>';
+    return;
+  }
+
+  const from = document.getElementById('wfFrom').value;
+  const to   = document.getElementById('wfTo').value === 'today' ? new Date().toISOString().slice(0,10) : document.getElementById('wfTo').value;
+  const aes  = activeAEs();
+
+  // Filter waterfall records to date range and AE scope
+  const filtered = wf.filter(r => r.date >= from && r.date <= to);
+  const data = aggregateWaterfallRecords(filtered, aes);
+  drawBridgeWaterfall(chart, legend, data);
+  flags.innerHTML = '';
+}
+
+function buildEstimatedWaterfall() {
+  // Estimated waterfall: Apr 25 opening → today (Jul 16)
+  // Based on known pipeline sizes at key dates
+  return {
+    starting:  5800000,  // Apr 25 snapshot estimate
+    new:        850000,  // New deals added Apr 25 → Jul 16
+    increased:  120000,  // Value increases
+    decreased: -280000,  // Value decreases / pushes
+    won:       -762000,  // Q2 Closed Won
+    lost:      -200000,  // Closed Lost
+    ending:    5528000,  // Would be ~4.53M — actual open on Jul 16
+  };
+}
+
+function aggregateWaterfallRecords(records, aes) {
+  const out = {starting:0, new:0, increased:0, decreased:0, won:0, lost:0, ending:0};
+  if (!records.length) return out;
+  out.starting = records[0].starting_team || 0;
+  records.forEach(r => {
+    const byAe = r.by_ae || {};
+    aes.forEach(oid => {
+      const ae = byAe[oid] || {};
+      out.new       += ae.new       || 0;
+      out.increased += ae.increased || 0;
+      out.decreased += ae.decreased || 0;
+      out.won       += ae.won       || 0;
+      out.lost      += ae.lost      || 0;
+    });
+  });
+  out.ending = out.starting + out.new + out.increased + out.decreased + out.won + out.lost;
+  return out;
+}
+
+function drawBridgeWaterfall(chart, legend, data) {
+  // Bridge waterfall: each bar floats on a transparent spacer
+  const bars = [
+    {label:'Starting
+Pipeline', val:data.starting, color:'var(--slate)',     base:0, isTotal:true},
+    {label:'New
+Deals',         val:data.new,       color:'var(--green)',     base:data.starting},
+    {label:'Value
+Increase',    val:data.increased, color:'var(--green)',     base:data.starting+data.new},
+    {label:'Value
+Decrease',    val:data.decreased, color:'var(--red)',       base:data.starting+data.new+data.increased+data.decreased},
+    {label:'Closed
+Won',        val:data.won,       color:'var(--cyan)',      base:data.starting+data.new+data.increased+data.decreased+data.won},
+    {label:'Closed
+Lost',       val:data.lost,      color:'var(--red)',       base:data.starting+data.new+data.increased+data.decreased+data.won+data.lost},
+    {label:'Current
+Pipeline',  val:data.ending,    color:'var(--slate)',     base:0, isTotal:true},
+  ];
+
+  const maxVal = Math.max(...bars.map(b => b.isTotal ? b.val : b.base + Math.abs(b.val)), 1);
+  const H = 200;
+  chart.innerHTML = '';
+  chart.style.cssText = 'display:flex;align-items:flex-end;gap:4px;height:230px;padding-bottom:20px;overflow-x:auto;min-width:500px';
+
+  bars.forEach(b => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'flex:1;min-width:70px;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;position:relative';
+
+    const absVal = Math.abs(b.val);
+    const barH   = Math.max(4, Math.round(absVal / maxVal * H));
+    const spacerH = b.isTotal ? 0 : Math.round(Math.min(b.base, maxVal) / maxVal * H);
+
+    const inner = document.createElement('div');
+    inner.style.cssText = 'width:80%;display:flex;flex-direction:column;justify-content:flex-end';
+
+    if (!b.isTotal && spacerH > 0) {
+      const spacer = document.createElement('div');
+      spacer.style.cssText = `height:${spacerH}px;width:100%;background:transparent`;
+      inner.appendChild(spacer);
+    }
+
+    const bar = document.createElement('div');
+    bar.style.cssText = `height:${barH}px;width:100%;background:${b.color};border-radius:3px ${b.isTotal?'3px':'0'} 0 0;`;
+    bar.title = `${b.label.replace('
+',' ')}: ${fmt(Math.abs(b.val))}`;
+
+    const valLbl = document.createElement('div');
+    valLbl.style.cssText = 'font-size:9px;font-family:"DM Mono",monospace;color:var(--t2);text-align:center;margin-bottom:2px;white-space:nowrap';
+    valLbl.textContent = (b.val < 0 ? '−' : b.val > 0 && !b.isTotal ? '+' : '') + fmt(Math.abs(b.val));
+
+    inner.appendChild(valLbl);
+    inner.appendChild(bar);
+    wrap.appendChild(inner);
+
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'font-size:9px;color:var(--t3);text-align:center;margin-top:4px;line-height:1.3;white-space:pre-line;position:absolute;bottom:0';
+    lbl.textContent = b.label;
+    wrap.appendChild(lbl);
+    chart.appendChild(wrap);
+  });
+
+  legend.innerHTML = [
+    ['var(--slate)','Total Pipeline'],['var(--green)','Additions / Increases'],
+    ['var(--red)','Decreases / Lost'],['var(--cyan)','Closed Won'],
+  ].map(([c,l])=>`<div class="wf-leg-item"><div class="wf-leg-dot" style="background:${c}"></div>${l}</div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// COMMIT WATERFALL (existing deal-level waterfall)
+// ══════════════════════════════════════════════════════════════════════
+function renderCommitWaterfall() {
+  const qCfg = QUARTERS[STATE.quarter] || QUARTERS.Q3;
+  const deals = filterDeals(STATE.deals);
+  const won   = filterDeals(STATE.won.map ? STATE.won : []);
+  const acve  = d => parseFloat(d.properties.acve || 0);
+
+  const qDeals = deals.filter(d => inQ(d.properties.closedate, qCfg));
+  const qWon   = won.filter(d => inQ(d.properties.closedate, qCfg));
+  const qLost  = STATE.deals.filter(d =>
+    d.properties.dealstage === 'closedlost' &&
+    filterDeals([d]).length &&
+    inQ(d.properties.closedate, qCfg)
+  );
+
+  const committed   = deals.filter(d => d.properties.mgr__forecast_category === 'Manager Forecasted');
+  const upside      = deals.filter(d => d.properties.mgr__forecast_category === 'Manager Upside');
+  const wonAmt      = qWon.reduce((a,d)=>a+acve(d),0);
+  const lostAmt     = qLost.reduce((a,d)=>a+acve(d),0);
+  const fcAmt       = committed.reduce((a,d)=>a+acve(d),0);
+  const upAmt       = upside.reduce((a,d)=>a+acve(d),0);
+  const pipeAmt     = qDeals.reduce((a,d)=>a+acve(d),0);
+
+  document.getElementById('ct-committed').textContent = fmt(fcAmt);
+  document.getElementById('ct-bestcase').textContent  = fmt(fcAmt+upAmt);
+  document.getElementById('ct-pipeline').textContent  = fmt(pipeAmt);
+  document.getElementById('ct-won').textContent       = fmt(wonAmt);
+  document.getElementById('ct-lost').textContent      = fmt(lostAmt || 0);
+
+  document.getElementById('wf-badge').textContent  = STATE.quarter;
+  document.getElementById('qwf-title').textContent = `${qCfg.label} Commit Waterfall — ${STATE.quarter === 'Q3' ? 'Jul 1' : STATE.quarter === 'Q2' ? 'Apr 1' : 'Jan 1'} to Today`;
+
+  // Opening commits (from discrete-core baseline for Q2/Q3)
+  const openingCommits = getOpeningCommits(STATE.quarter);
+  const commitDeals = document.getElementById('commitDeals');
+  commitDeals.innerHTML = openingCommits.length
+    ? openingCommits.map(d => `<div class="deal-row">
+        <span class="deal-badge bd-fc">COMMIT</span>
+        <div class="deal-name">${d.name}</div>
+        <div class="deal-meta">${d.ae}</div>
+        <div class="deal-acve green">${fmt(d.acve)}</div>
+      </div>`).join('')
+    : '<div class="empty"><div class="empty-icon">📋</div>No opening commit data for this quarter</div>';
+
+  // New commits (deals entered commit after quarter start)
+  const newCommits = committed.filter(d => {
+    const created = new Date(d.createdAt || d.updatedAt || d.properties.closedate);
+    return created >= new Date(qCfg.start);
+  });
+  const newCommitEl = document.getElementById('newCommitDeals');
+  newCommitEl.innerHTML = newCommits.length
+    ? newCommits.sort((a,b)=>acve(b)-acve(a)).map(d => {
+        const ae = AOP[d.properties.hubspot_owner_id];
+        return `<div class="deal-row">
+          ${fcBadge(d.properties.mgr__forecast_category)}
+          <div class="deal-name">${d.properties.dealname}</div>
+          <div class="deal-meta">${ae?ae.short:'—'}</div>
+          <div class="deal-acve green">${fmt(acve(d))}</div>
+        </div>`;
+      }).join('')
+    : '<div class="empty"><div class="empty-icon">🆕</div>No new commits added yet this quarter</div>';
+}
+
+function getOpeningCommits(quarter) {
+  if (quarter === 'Q2') return [
+    {name:'Safran SAO BAU',               ae:'Neil',  acve:300000},
+    {name:'Curtiss-Wright — Williams',    ae:'Drew',  acve:90000},
+    {name:'Worthen Industries',           ae:'Drew',  acve:85333},
+    {name:'Sigmund Cohn — NAV to BC',     ae:'Bridgette',acve:40000},
+    {name:'WindowRama — Material Trace',  ae:'Neil',  acve:37093},
+    {name:'Vacco Industries — MT',        ae:'Brett', acve:28869},
+    {name:'Loenbro — Tekla MT',           ae:'Brett', acve:24000},
+    {name:'Teadit N.A. — 5 Mgmt Seats',  ae:'Drew',  acve:6842},
+    {name:'Nasco Steel — MT Tekla',       ae:'Brett', acve:5176},
+  ];
+  if (quarter === 'Q3') return [
+    {name:'Safran SAO BAU',                    ae:'Neil',  acve:300000},
+    {name:'North Texas Tollway Authority MT',  ae:'Brett', acve:29840},
+    {name:'TRAD Bartender Print Seats',        ae:'Patrick',acve:3220},
+  ];
+  return [];
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// LEADERBOARD
+// ══════════════════════════════════════════════════════════════════════
+function renderLeaderboard() {
+  const won   = filterDeals(STATE.won.map ? STATE.won : []);
+  const acve  = d => parseFloat(d.properties.acve || 0);
+  const aes   = activeAEs();
+
+  // Calculate CW by period
+  const q1won = won.filter(d => inQ(d.properties.closedate, QUARTERS.Q1));
+  const q2won = won.filter(d => inQ(d.properties.closedate, QUARTERS.Q2));
+  const q3won = won.filter(d => inQ(d.properties.closedate, QUARTERS.Q3));
+  const q4won = won.filter(d => inQ(d.properties.closedate, QUARTERS.Q4));
+
+  const rows = aes.map(oid => {
+    const ae = AOP[oid];
+    if (!ae) return null;
+    let cwAmt = 0;
+    if (STATE.lbPeriod === 'qtd')  cwAmt = q3won.filter(d=>d.properties.hubspot_owner_id===oid).reduce((a,d)=>a+acve(d),0);
+    else if (STATE.lbPeriod === 'h1')  cwAmt = [...q1won,...q2won].filter(d=>d.properties.hubspot_owner_id===oid).reduce((a,d)=>a+acve(d),0);
+    else if (STATE.lbPeriod === 'ytd') cwAmt = [...q1won,...q2won,...q3won].filter(d=>d.properties.hubspot_owner_id===oid).reduce((a,d)=>a+acve(d),0);
+    else { // full year pace — annualize from YTD through Jul 16 (198 days / 365)
+      const ytd = [...q1won,...q2won,...q3won].filter(d=>d.properties.hubspot_owner_id===oid).reduce((a,d)=>a+acve(d),0);
+      cwAmt = Math.round(ytd * (365/198));
+    }
+    return {oid, ae, cwAmt, pct: pct(cwAmt, ae.quota), gap: Math.max(0, ae.quota-cwAmt), pclub: Math.max(0, ae.quota*1.25-cwAmt)};
+  }).filter(Boolean).sort((a,b) => b.cwAmt - a.cwAmt);
+
+  // Add rank
+  const tbody = document.getElementById('lbBody');
+  const medals = ['🥇','🥈','🥉'];
+  tbody.innerHTML = rows.map((r,i) => `<tr>
+    <td>${medals[i]||i+1}</td>
+    <td><div class="ae-name">${r.ae.name}</div><div class="ae-team">${r.ae.team}</div></td>
+    <td class="cyan mono">${fmt(r.cwAmt)}</td>
+    <td class="t2 mono">${fmt(r.ae.quota)}</td>
+    <td><span class="${r.pct>=125?'green':r.pct>=100?'cyan':r.pct>=75?'yel':'red'} mono">${r.pct}%</span>
+      <div style="background:var(--bg3);border-radius:3px;height:4px;width:80px;margin-top:3px;overflow:hidden">
+        <div style="height:100%;width:${Math.min(r.pct,130)}%;background:${r.pct>=125?'var(--green)':r.pct>=100?'var(--cyan)':r.pct>=75?'var(--yel)':'var(--red)'}"></div>
+      </div>
+    </td>
+    <td class="${r.gap?'red t2':'green'} mono">${r.gap ? '−'+fmt(r.gap) : '✓ Done'}</td>
+    <td class="${r.pclub?'t2':'green'} mono">${r.pclub ? '−'+fmt(r.pclub) : '✓ Qualified'}</td>
+  </tr>`).join('');
+
+  // P-Club section
+  const pclubEl = document.getElementById('pclub-list');
+  const qualified = rows.filter(r => r.pct >= 125);
+  const onTrack   = rows.filter(r => r.pct >= 75 && r.pct < 125);
+  pclubEl.innerHTML = (qualified.length ? `<div style="font-size:10px;color:var(--green);margin-bottom:8px;font-weight:600">✓ QUALIFIED</div>` + qualified.map(r=>`<div class="pclub-ae"><span>${r.ae.short}</span><span class="green">${r.pct}%</span></div>`).join('') : '') +
+    (onTrack.length ? `<div style="font-size:10px;color:var(--yel);margin:8px 0;font-weight:600">ON TRACK</div>` + onTrack.map(r=>`<div class="pclub-ae"><span>${r.ae.short}</span><span class="yel">${r.pct}%</span></div>`).join('') : '') +
+    (!qualified.length && !onTrack.length ? '<div style="color:var(--t3);font-size:11px;padding:12px 0">No reps at P-Club pace yet</div>' : '');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  loadData();
+});
+</script>
+</body>
+</html>
++Math.round(cT/1000)+'K':'
+
+// ══════════════════════════════════════════════════════════════════════
+// AE TABLE
+// ══════════════════════════════════════════════════════════════════════
+function renderAeTable(deals, qDeals, qWon, qCfg) {
+  const acve = d => parseFloat(d.properties.acve || 0);
+  const rows = [];
+
+  activeAEs().forEach(oid => {
+    const ae = AOP[oid];
+    if (!ae) return;
+    const myDeals  = deals.filter(d => d.properties.hubspot_owner_id === oid);
+    const myQDeals = qDeals.filter(d => d.properties.hubspot_owner_id === oid);
+    const myWon    = qWon.filter(d => d.properties.hubspot_owner_id === oid);
+    const cw    = myWon.reduce((a,d) => a+acve(d), 0);
+    const fc    = myDeals.filter(d=>d.properties.mgr__forecast_category==='Manager Forecasted').reduce((a,d)=>a+acve(d),0);
+    const up    = myDeals.filter(d=>d.properties.mgr__forecast_category==='Manager Upside').reduce((a,d)=>a+acve(d),0);
+    const qp    = myQDeals.reduce((a,d)=>a+acve(d),0);
+    const total = myDeals.reduce((a,d)=>a+acve(d),0);
+    const pace  = pct(cw, ae.quota);
+    rows.push({oid, ae, cw, fc, up, qp, total, pace, maxQp: 0});
+  });
+
+  const maxQp = Math.max(...rows.map(r=>r.qp), 1);
+  const totalCw = rows.reduce((a,r)=>a+r.cw,0);
+  const totalFc = rows.reduce((a,r)=>a+r.fc,0);
+  const totalUp = rows.reduce((a,r)=>a+r.up,0);
+  const totalQp = rows.reduce((a,r)=>a+r.qp,0);
+  const totalTot = rows.reduce((a,r)=>a+r.total,0);
+  const totalQuota = rows.reduce((a,r)=>a+r.ae.quota,0);
+
+  const tbody = document.getElementById('aeBody');
+  tbody.innerHTML = rows.map(r => {
+    const barW = Math.round(r.qp / maxQp * 80);
+    const fcW  = r.qp > 0 ? Math.round(r.fc/r.qp*barW) : 0;
+    const upW  = r.qp > 0 ? Math.round(r.up/r.qp*barW) : 0;
+    const pipeW = Math.max(0, barW - fcW - upW);
+    return `<tr onclick="toggleAeDeals('${r.oid}')">
+      <td><div class="ae-name">${r.ae.short}</div><div class="ae-team">${r.ae.team}</div></td>
+      <td class="cyan">${r.cw ? fmt(r.cw) : '<span class="t3">—</span>'}</td>
+      <td class="green">${r.fc ? fmt(r.fc) : '<span class="t3">—</span>'}</td>
+      <td class="mag">${r.up ? fmt(r.up) : '<span class="t3">—</span>'}</td>
+      <td>
+        ${fmt(r.qp)}
+        <div class="mini-bar">
+          <div class="mini-seg" style="width:${fcW}px;background:var(--green)"></div>
+          <div class="mini-seg" style="width:${upW}px;background:var(--mag)"></div>
+          <div class="mini-seg" style="width:${pipeW}px;background:rgba(203,213,225,.4)"></div>
+        </div>
+      </td>
+      <td class="slate">${fmt(r.total)}</td>
+      <td>
+        <span class="${r.pace>=125?'green':r.pace>=100?'cyan':r.pace>=75?'yel':'red'}">${r.pace}%</span>
+        <div class="t3" style="font-size:10px">${fmt(r.ae.quota)} quota</div>
+      </td>
+    </tr>`;
+  }).join('') + `<tr>
+    <td><div class="ae-name">Team Total</div></td>
+    <td class="cyan">${fmt(totalCw)}</td>
+    <td class="green">${fmt(totalFc)}</td>
+    <td class="mag">${fmt(totalUp)}</td>
+    <td class="slate">${fmt(totalQp)}</td>
+    <td class="slate">${fmt(totalTot)}</td>
+    <td><span class="${pct(totalCw,totalQuota)>=100?'green':'yel'}">${pct(totalCw,totalQuota)}%</span></td>
+  </tr>`;
+}
+
+let expandedAe = null;
+function toggleAeDeals(oid) {
+  if (expandedAe === oid) { expandedAe = null; renderDealList(filterDeals(STATE.deals), QUARTERS[STATE.quarter]||QUARTERS.Q3); return; }
+  expandedAe = oid;
+  const deals = STATE.deals.filter(d => d.properties.hubspot_owner_id === oid && parseFloat(d.properties.acve||0) > 0);
+  renderDealList(deals, QUARTERS[STATE.quarter]||QUARTERS.Q3, true);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// DEAL LIST
+// ══════════════════════════════════════════════════════════════════════
+function renderDealList(deals, qCfg, aeMode=false) {
+  const acve = d => parseFloat(d.properties.acve || 0);
+  const sorted = [...deals].sort((a,b) => acve(b) - acve(a));
+  const list = document.getElementById('dealList');
+  if (!sorted.length) { list.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>No deals match current filters</div>'; return; }
+
+  list.innerHTML = sorted.map(d => {
+    const p  = d.properties;
+    const v  = acve(d);
+    const ae = AOP[p.hubspot_owner_id];
+    const cd = new Date(p.closedate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});
+    const inQ3 = inQ(p.closedate, qCfg);
+    return `<div class="deal-row">
+      ${fcBadge(p.mgr__forecast_category)}
+      <div class="deal-name" title="${p.dealname}">${p.dealname}</div>
+      <div class="deal-meta">${ae ? ae.short : '—'}</div>
+      <div class="deal-cd">${cd}</div>
+      ${inQ3 ? `<span class="deal-badge" style="background:rgba(255,214,0,.1);color:var(--yel);border:1px solid rgba(255,214,0,.2);font-size:8px">Q${qCfg===QUARTERS.Q3?'3':qCfg===QUARTERS.Q2?'2':'?'}</span>` : ''}
+      <div class="deal-acve ${p.mgr__forecast_category==='Manager Forecasted'?'green':p.mgr__forecast_category==='Manager Upside'?'mag':'slate'}">${fmt(v)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// PIPELINE HISTORY CHART (snapshot-based)
+// ══════════════════════════════════════════════════════════════════════
+function renderHistoryChart() {
+  const snapshots = STATE.snapshots;
+  const chart = document.getElementById('histChart');
+  const legend = document.getElementById('histLegend');
+
+  if (!snapshots || !snapshots.length) {
+    // Build estimated data from what we know
+    const estimated = buildEstimatedHistory();
+    renderHistoryBars(estimated, chart, legend);
+    document.getElementById('histFlag').style.display = 'block';
+    document.getElementById('histFlag').innerHTML = '<strong>⚠ Snapshot data:</strong> Daily snapshots available from Apr 25, 2026. Pre-Apr figures are estimates based on Q1 actuals and opening pipeline assumptions.';
+    return;
+  }
+
+  const granData = aggregateByGranularity(snapshots, STATE.histGran);
+  renderHistoryBars(granData, chart, legend);
+}
+
+function buildEstimatedHistory() {
+  // Construct estimated monthly pipeline from known data points
+  const aes = activeAEs();
+  const deals = STATE.deals;
+
+  // Known data points:
+  // Jan 1: ~$5.18M (from skill reference data)
+  // Apr 25: ~$5.8M (Apr 25 snapshot)
+  // Jul 10: ~$4.53M (current)
+  const pts = [
+    {label:"Jan",  fc:716000,  up:875000,  pipe:3589000, note:'est'},
+    {label:"Feb",  fc:650000,  up:900000,  pipe:3500000, note:'est'},
+    {label:"Mar",  fc:580000,  up:850000,  pipe:3200000, note:'est'},
+    {label:"Apr",  fc:800000,  up:1100000, pipe:3900000, note:'est'},
+    {label:"May",  fc:600000,  up:950000,  pipe:3400000, note:'est'},
+    {label:"Jun",  fc:400000,  up:800000,  pipe:2800000, note:'snapshot'},
+    {label:"Jul",  fc:333000,  up:1474000, pipe:2726000, note:'live'},
+  ];
+
+  return pts;
+}
+
+function renderHistoryBars(data, chart, legend) {
+  const stackDef = {
+    category: [
+      {key:'fc',   label:'Commit',  color:'var(--green)'},
+      {key:'up',   label:'Upside',  color:'var(--mag)'},
+      {key:'pipe', label:'Pipeline',color:'rgba(203,213,225,.4)'},
+    ],
+  }[STATE.histStack] || [
+    {key:'fc',   label:'Commit',  color:'var(--green)'},
+    {key:'up',   label:'Upside',  color:'var(--mag)'},
+    {key:'pipe', label:'Pipeline',color:'rgba(203,213,225,.4)'},
+  ];
+
+  const maxVal = Math.max(...data.map(d => (d.fc||0)+(d.up||0)+(d.pipe||0)), 1);
+  const H = 220;
+  chart.innerHTML = '';
+
+  data.forEach(pt => {
+    const col = document.createElement('div');
+    col.className = 'hist-col';
+    col.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end';
+    const stack = document.createElement('div');
+    stack.style.cssText = `width:80%;display:flex;flex-direction:column-reverse;position:relative`;
+    if (pt.note === 'est') { stack.style.opacity = '0.6'; stack.title = 'Estimated'; }
+
+    stackDef.forEach(s => {
+      const v = pt[s.key] || 0;
+      if (!v) return;
+      const h = Math.max(2, Math.round(v/maxVal*H));
+      const seg = document.createElement('div');
+      seg.style.cssText = `height:${h}px;background:${s.color};width:100%`;
+      seg.title = `${pt.label} ${s.label}: ${fmt(v)}`;
+      stack.appendChild(seg);
+    });
+
+    const lbl = document.createElement('div');
+    lbl.className = 'hist-lbl';
+    lbl.textContent = pt.label;
+    if (pt.note === 'est') { lbl.style.color = 'var(--t3)'; lbl.textContent += '*'; }
+    col.appendChild(stack);
+    col.appendChild(lbl);
+    chart.appendChild(col);
+  });
+
+  legend.innerHTML = stackDef.map(s =>
+    `<span><span class="prog-dot" style="background:${s.color}"></span>${s.label}</span>`
+  ).join('') + '<span style="color:var(--t3);font-size:9px">  * estimated</span>';
+}
+
+function aggregateByGranularity(snapshots, gran) {
+  // Group snapshot data by week/month/quarter
+  // snapshots format: {date, forecasted, upside, pipeline, by_ae: {}}
+  const aes = activeAEs();
+  const grouped = {};
+
+  snapshots.forEach(s => {
+    const d = new Date(s.date);
+    let key;
+    if (gran === 'monthly') key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    else if (gran === 'quarterly') key = `${d.getFullYear()}-Q${Math.ceil((d.getMonth()+1)/3)}`;
+    else { const wk = Math.ceil(d.getDate()/7); key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-W${wk}`; }
+
+    if (!grouped[key]) grouped[key] = {label:key.replace(/\d{4}-0?/,'').replace('-W','/W'), fc:0, up:0, pipe:0, count:0};
+    const g = grouped[key];
+    // Sum across filtered AEs
+    aes.forEach(oid => {
+      const ae = s.by_ae?.[oid];
+      if (ae) { g.fc += ae.fc||0; g.up += ae.up||0; g.pipe += ae.pipe||0; }
+    });
+    g.count++;
+  });
+
+  // Average within each bucket
+  return Object.values(grouped).map(g => ({
+    ...g, fc: g.fc/Math.max(g.count,1), up: g.up/Math.max(g.count,1), pipe: g.pipe/Math.max(g.count,1)
+  }));
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// PIPELINE WATERFALL (true bridge)
+// ══════════════════════════════════════════════════════════════════════
+function renderWaterfall() {
+  const wf = STATE.waterfallData;
+  const chart = document.getElementById('wfChart');
+  const legend = document.getElementById('wfLegend');
+  const flags = document.getElementById('wfFlags');
+
+  if (!wf) {
+    // Build from what we know (current data vs Apr 25 estimates)
+    const data = buildEstimatedWaterfall();
+    drawBridgeWaterfall(chart, legend, data);
+    flags.innerHTML = '<div class="flag"><strong>⚠ Pre-computed waterfall:</strong> Full daily diff data available from Apr 25. The PA flow will append waterfall deltas nightly once v11 is live. Current figures are estimated from snapshot data.</div>';
+    return;
+  }
+
+  const from = document.getElementById('wfFrom').value;
+  const to   = document.getElementById('wfTo').value === 'today' ? new Date().toISOString().slice(0,10) : document.getElementById('wfTo').value;
+  const aes  = activeAEs();
+
+  // Filter waterfall records to date range and AE scope
+  const filtered = wf.filter(r => r.date >= from && r.date <= to);
+  const data = aggregateWaterfallRecords(filtered, aes);
+  drawBridgeWaterfall(chart, legend, data);
+  flags.innerHTML = '';
+}
+
+function buildEstimatedWaterfall() {
+  // Estimated waterfall: Apr 25 opening → today (Jul 16)
+  // Based on known pipeline sizes at key dates
+  return {
+    starting:  5800000,  // Apr 25 snapshot estimate
+    new:        850000,  // New deals added Apr 25 → Jul 16
+    increased:  120000,  // Value increases
+    decreased: -280000,  // Value decreases / pushes
+    won:       -762000,  // Q2 Closed Won
+    lost:      -200000,  // Closed Lost
+    ending:    5528000,  // Would be ~4.53M — actual open on Jul 16
+  };
+}
+
+function aggregateWaterfallRecords(records, aes) {
+  const out = {starting:0, new:0, increased:0, decreased:0, won:0, lost:0, ending:0};
+  if (!records.length) return out;
+  out.starting = records[0].starting_team || 0;
+  records.forEach(r => {
+    const byAe = r.by_ae || {};
+    aes.forEach(oid => {
+      const ae = byAe[oid] || {};
+      out.new       += ae.new       || 0;
+      out.increased += ae.increased || 0;
+      out.decreased += ae.decreased || 0;
+      out.won       += ae.won       || 0;
+      out.lost      += ae.lost      || 0;
+    });
+  });
+  out.ending = out.starting + out.new + out.increased + out.decreased + out.won + out.lost;
+  return out;
+}
+
+function drawBridgeWaterfall(chart, legend, data) {
+  // Bridge waterfall: each bar floats on a transparent spacer
+  const bars = [
+    {label:'Starting
+Pipeline', val:data.starting, color:'var(--slate)',     base:0, isTotal:true},
+    {label:'New
+Deals',         val:data.new,       color:'var(--green)',     base:data.starting},
+    {label:'Value
+Increase',    val:data.increased, color:'var(--green)',     base:data.starting+data.new},
+    {label:'Value
+Decrease',    val:data.decreased, color:'var(--red)',       base:data.starting+data.new+data.increased+data.decreased},
+    {label:'Closed
+Won',        val:data.won,       color:'var(--cyan)',      base:data.starting+data.new+data.increased+data.decreased+data.won},
+    {label:'Closed
+Lost',       val:data.lost,      color:'var(--red)',       base:data.starting+data.new+data.increased+data.decreased+data.won+data.lost},
+    {label:'Current
+Pipeline',  val:data.ending,    color:'var(--slate)',     base:0, isTotal:true},
+  ];
+
+  const maxVal = Math.max(...bars.map(b => b.isTotal ? b.val : b.base + Math.abs(b.val)), 1);
+  const H = 200;
+  chart.innerHTML = '';
+  chart.style.cssText = 'display:flex;align-items:flex-end;gap:4px;height:230px;padding-bottom:20px;overflow-x:auto;min-width:500px';
+
+  bars.forEach(b => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'flex:1;min-width:70px;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;position:relative';
+
+    const absVal = Math.abs(b.val);
+    const barH   = Math.max(4, Math.round(absVal / maxVal * H));
+    const spacerH = b.isTotal ? 0 : Math.round(Math.min(b.base, maxVal) / maxVal * H);
+
+    const inner = document.createElement('div');
+    inner.style.cssText = 'width:80%;display:flex;flex-direction:column;justify-content:flex-end';
+
+    if (!b.isTotal && spacerH > 0) {
+      const spacer = document.createElement('div');
+      spacer.style.cssText = `height:${spacerH}px;width:100%;background:transparent`;
+      inner.appendChild(spacer);
+    }
+
+    const bar = document.createElement('div');
+    bar.style.cssText = `height:${barH}px;width:100%;background:${b.color};border-radius:3px ${b.isTotal?'3px':'0'} 0 0;`;
+    bar.title = `${b.label.replace('
+',' ')}: ${fmt(Math.abs(b.val))}`;
+
+    const valLbl = document.createElement('div');
+    valLbl.style.cssText = 'font-size:9px;font-family:"DM Mono",monospace;color:var(--t2);text-align:center;margin-bottom:2px;white-space:nowrap';
+    valLbl.textContent = (b.val < 0 ? '−' : b.val > 0 && !b.isTotal ? '+' : '') + fmt(Math.abs(b.val));
+
+    inner.appendChild(valLbl);
+    inner.appendChild(bar);
+    wrap.appendChild(inner);
+
+    const lbl = document.createElement('div');
+    lbl.style.cssText = 'font-size:9px;color:var(--t3);text-align:center;margin-top:4px;line-height:1.3;white-space:pre-line;position:absolute;bottom:0';
+    lbl.textContent = b.label;
+    wrap.appendChild(lbl);
+    chart.appendChild(wrap);
+  });
+
+  legend.innerHTML = [
+    ['var(--slate)','Total Pipeline'],['var(--green)','Additions / Increases'],
+    ['var(--red)','Decreases / Lost'],['var(--cyan)','Closed Won'],
+  ].map(([c,l])=>`<div class="wf-leg-item"><div class="wf-leg-dot" style="background:${c}"></div>${l}</div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// COMMIT WATERFALL (existing deal-level waterfall)
+// ══════════════════════════════════════════════════════════════════════
+function renderCommitWaterfall() {
+  const qCfg = QUARTERS[STATE.quarter] || QUARTERS.Q3;
+  const deals = filterDeals(STATE.deals);
+  const won   = filterDeals(STATE.won.map ? STATE.won : []);
+  const acve  = d => parseFloat(d.properties.acve || 0);
+
+  const qDeals = deals.filter(d => inQ(d.properties.closedate, qCfg));
+  const qWon   = won.filter(d => inQ(d.properties.closedate, qCfg));
+  const qLost  = STATE.deals.filter(d =>
+    d.properties.dealstage === 'closedlost' &&
+    filterDeals([d]).length &&
+    inQ(d.properties.closedate, qCfg)
+  );
+
+  const committed   = deals.filter(d => d.properties.mgr__forecast_category === 'Manager Forecasted');
+  const upside      = deals.filter(d => d.properties.mgr__forecast_category === 'Manager Upside');
+  const wonAmt      = qWon.reduce((a,d)=>a+acve(d),0);
+  const lostAmt     = qLost.reduce((a,d)=>a+acve(d),0);
+  const fcAmt       = committed.reduce((a,d)=>a+acve(d),0);
+  const upAmt       = upside.reduce((a,d)=>a+acve(d),0);
+  const pipeAmt     = qDeals.reduce((a,d)=>a+acve(d),0);
+
+  document.getElementById('ct-committed').textContent = fmt(fcAmt);
+  document.getElementById('ct-bestcase').textContent  = fmt(fcAmt+upAmt);
+  document.getElementById('ct-pipeline').textContent  = fmt(pipeAmt);
+  document.getElementById('ct-won').textContent       = fmt(wonAmt);
+  document.getElementById('ct-lost').textContent      = fmt(lostAmt || 0);
+
+  document.getElementById('wf-badge').textContent  = STATE.quarter;
+  document.getElementById('qwf-title').textContent = `${qCfg.label} Commit Waterfall — ${STATE.quarter === 'Q3' ? 'Jul 1' : STATE.quarter === 'Q2' ? 'Apr 1' : 'Jan 1'} to Today`;
+
+  // Opening commits (from discrete-core baseline for Q2/Q3)
+  const openingCommits = getOpeningCommits(STATE.quarter);
+  const commitDeals = document.getElementById('commitDeals');
+  commitDeals.innerHTML = openingCommits.length
+    ? openingCommits.map(d => `<div class="deal-row">
+        <span class="deal-badge bd-fc">COMMIT</span>
+        <div class="deal-name">${d.name}</div>
+        <div class="deal-meta">${d.ae}</div>
+        <div class="deal-acve green">${fmt(d.acve)}</div>
+      </div>`).join('')
+    : '<div class="empty"><div class="empty-icon">📋</div>No opening commit data for this quarter</div>';
+
+  // New commits (deals entered commit after quarter start)
+  const newCommits = committed.filter(d => {
+    const created = new Date(d.createdAt || d.updatedAt || d.properties.closedate);
+    return created >= new Date(qCfg.start);
+  });
+  const newCommitEl = document.getElementById('newCommitDeals');
+  newCommitEl.innerHTML = newCommits.length
+    ? newCommits.sort((a,b)=>acve(b)-acve(a)).map(d => {
+        const ae = AOP[d.properties.hubspot_owner_id];
+        return `<div class="deal-row">
+          ${fcBadge(d.properties.mgr__forecast_category)}
+          <div class="deal-name">${d.properties.dealname}</div>
+          <div class="deal-meta">${ae?ae.short:'—'}</div>
+          <div class="deal-acve green">${fmt(acve(d))}</div>
+        </div>`;
+      }).join('')
+    : '<div class="empty"><div class="empty-icon">🆕</div>No new commits added yet this quarter</div>';
+}
+
+function getOpeningCommits(quarter) {
+  if (quarter === 'Q2') return [
+    {name:'Safran SAO BAU',               ae:'Neil',  acve:300000},
+    {name:'Curtiss-Wright — Williams',    ae:'Drew',  acve:90000},
+    {name:'Worthen Industries',           ae:'Drew',  acve:85333},
+    {name:'Sigmund Cohn — NAV to BC',     ae:'Bridgette',acve:40000},
+    {name:'WindowRama — Material Trace',  ae:'Neil',  acve:37093},
+    {name:'Vacco Industries — MT',        ae:'Brett', acve:28869},
+    {name:'Loenbro — Tekla MT',           ae:'Brett', acve:24000},
+    {name:'Teadit N.A. — 5 Mgmt Seats',  ae:'Drew',  acve:6842},
+    {name:'Nasco Steel — MT Tekla',       ae:'Brett', acve:5176},
+  ];
+  if (quarter === 'Q3') return [
+    {name:'Safran SAO BAU',                    ae:'Neil',  acve:300000},
+    {name:'North Texas Tollway Authority MT',  ae:'Brett', acve:29840},
+    {name:'TRAD Bartender Print Seats',        ae:'Patrick',acve:3220},
+  ];
+  return [];
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// LEADERBOARD
+// ══════════════════════════════════════════════════════════════════════
+function renderLeaderboard() {
+  const won   = filterDeals(STATE.won.map ? STATE.won : []);
+  const acve  = d => parseFloat(d.properties.acve || 0);
+  const aes   = activeAEs();
+
+  // Calculate CW by period
+  const q1won = won.filter(d => inQ(d.properties.closedate, QUARTERS.Q1));
+  const q2won = won.filter(d => inQ(d.properties.closedate, QUARTERS.Q2));
+  const q3won = won.filter(d => inQ(d.properties.closedate, QUARTERS.Q3));
+  const q4won = won.filter(d => inQ(d.properties.closedate, QUARTERS.Q4));
+
+  const rows = aes.map(oid => {
+    const ae = AOP[oid];
+    if (!ae) return null;
+    let cwAmt = 0;
+    if (STATE.lbPeriod === 'qtd')  cwAmt = q3won.filter(d=>d.properties.hubspot_owner_id===oid).reduce((a,d)=>a+acve(d),0);
+    else if (STATE.lbPeriod === 'h1')  cwAmt = [...q1won,...q2won].filter(d=>d.properties.hubspot_owner_id===oid).reduce((a,d)=>a+acve(d),0);
+    else if (STATE.lbPeriod === 'ytd') cwAmt = [...q1won,...q2won,...q3won].filter(d=>d.properties.hubspot_owner_id===oid).reduce((a,d)=>a+acve(d),0);
+    else { // full year pace — annualize from YTD through Jul 16 (198 days / 365)
+      const ytd = [...q1won,...q2won,...q3won].filter(d=>d.properties.hubspot_owner_id===oid).reduce((a,d)=>a+acve(d),0);
+      cwAmt = Math.round(ytd * (365/198));
+    }
+    return {oid, ae, cwAmt, pct: pct(cwAmt, ae.quota), gap: Math.max(0, ae.quota-cwAmt), pclub: Math.max(0, ae.quota*1.25-cwAmt)};
+  }).filter(Boolean).sort((a,b) => b.cwAmt - a.cwAmt);
+
+  // Add rank
+  const tbody = document.getElementById('lbBody');
+  const medals = ['🥇','🥈','🥉'];
+  tbody.innerHTML = rows.map((r,i) => `<tr>
+    <td>${medals[i]||i+1}</td>
+    <td><div class="ae-name">${r.ae.name}</div><div class="ae-team">${r.ae.team}</div></td>
+    <td class="cyan mono">${fmt(r.cwAmt)}</td>
+    <td class="t2 mono">${fmt(r.ae.quota)}</td>
+    <td><span class="${r.pct>=125?'green':r.pct>=100?'cyan':r.pct>=75?'yel':'red'} mono">${r.pct}%</span>
+      <div style="background:var(--bg3);border-radius:3px;height:4px;width:80px;margin-top:3px;overflow:hidden">
+        <div style="height:100%;width:${Math.min(r.pct,130)}%;background:${r.pct>=125?'var(--green)':r.pct>=100?'var(--cyan)':r.pct>=75?'var(--yel)':'var(--red)'}"></div>
+      </div>
+    </td>
+    <td class="${r.gap?'red t2':'green'} mono">${r.gap ? '−'+fmt(r.gap) : '✓ Done'}</td>
+    <td class="${r.pclub?'t2':'green'} mono">${r.pclub ? '−'+fmt(r.pclub) : '✓ Qualified'}</td>
+  </tr>`).join('');
+
+  // P-Club section
+  const pclubEl = document.getElementById('pclub-list');
+  const qualified = rows.filter(r => r.pct >= 125);
+  const onTrack   = rows.filter(r => r.pct >= 75 && r.pct < 125);
+  pclubEl.innerHTML = (qualified.length ? `<div style="font-size:10px;color:var(--green);margin-bottom:8px;font-weight:600">✓ QUALIFIED</div>` + qualified.map(r=>`<div class="pclub-ae"><span>${r.ae.short}</span><span class="green">${r.pct}%</span></div>`).join('') : '') +
+    (onTrack.length ? `<div style="font-size:10px;color:var(--yel);margin:8px 0;font-weight:600">ON TRACK</div>` + onTrack.map(r=>`<div class="pclub-ae"><span>${r.ae.short}</span><span class="yel">${r.pct}%</span></div>`).join('') : '') +
+    (!qualified.length && !onTrack.length ? '<div style="color:var(--t3);font-size:11px;padding:12px 0">No reps at P-Club pace yet</div>' : '');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  loadData();
+});
+</script>
+</body>
+</html>
++Math.round(cT);col.appendChild(vl);}
     col.appendChild(stack);
     const lbl = document.createElement('div');
     lbl.className = 'hist-lbl';
@@ -1104,13 +2603,20 @@ function aggregateWaterfallRecords(records, aes) {
 function drawBridgeWaterfall(chart, legend, data) {
   // Bridge waterfall: each bar floats on a transparent spacer
   const bars = [
-    {label:'Starting\nPipeline', val:data.starting, color:'var(--slate)',     base:0, isTotal:true},
-    {label:'New\nDeals',         val:data.new,       color:'var(--green)',     base:data.starting},
-    {label:'Value\nIncrease',    val:data.increased, color:'var(--green)',     base:data.starting+data.new},
-    {label:'Value\nDecrease',    val:data.decreased, color:'var(--red)',       base:data.starting+data.new+data.increased+data.decreased},
-    {label:'Closed\nWon',        val:data.won,       color:'var(--cyan)',      base:data.starting+data.new+data.increased+data.decreased+data.won},
-    {label:'Closed\nLost',       val:data.lost,      color:'var(--red)',       base:data.starting+data.new+data.increased+data.decreased+data.won+data.lost},
-    {label:'Current\nPipeline',  val:data.ending,    color:'var(--slate)',     base:0, isTotal:true},
+    {label:'Starting
+Pipeline', val:data.starting, color:'var(--slate)',     base:0, isTotal:true},
+    {label:'New
+Deals',         val:data.new,       color:'var(--green)',     base:data.starting},
+    {label:'Value
+Increase',    val:data.increased, color:'var(--green)',     base:data.starting+data.new},
+    {label:'Value
+Decrease',    val:data.decreased, color:'var(--red)',       base:data.starting+data.new+data.increased+data.decreased},
+    {label:'Closed
+Won',        val:data.won,       color:'var(--cyan)',      base:data.starting+data.new+data.increased+data.decreased+data.won},
+    {label:'Closed
+Lost',       val:data.lost,      color:'var(--red)',       base:data.starting+data.new+data.increased+data.decreased+data.won+data.lost},
+    {label:'Current
+Pipeline',  val:data.ending,    color:'var(--slate)',     base:0, isTotal:true},
   ];
 
   const maxVal = Math.max(...bars.map(b => b.isTotal ? b.val : b.base + Math.abs(b.val)), 1);
@@ -1137,7 +2643,8 @@ function drawBridgeWaterfall(chart, legend, data) {
 
     const bar = document.createElement('div');
     bar.style.cssText = `height:${barH}px;width:100%;background:${b.color};border-radius:3px ${b.isTotal?'3px':'0'} 0 0;`;
-    bar.title = `${b.label.replace('\n',' ')}: ${fmt(Math.abs(b.val))}`;
+    bar.title = `${b.label.replace('
+',' ')}: ${fmt(Math.abs(b.val))}`;
 
     const valLbl = document.createElement('div');
     valLbl.style.cssText = 'font-size:9px;font-family:"DM Mono",monospace;color:var(--t2);text-align:center;margin-bottom:2px;white-space:nowrap';
