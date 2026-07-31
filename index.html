@@ -1001,6 +1001,14 @@ function renderHistoryBars(data, chart, legend) {
     lbl.className = 'hist-lbl';
     lbl.textContent = pt.label;
     if (pt.note === 'est') { lbl.style.color = 'var(--t3)'; lbl.textContent += '*'; }
+    
+    var hTot = (pt.fc||0)+(pt.up||0)+(pt.pipe||0);
+    if (hTot > 0) {
+      var vLbl = document.createElement('div');
+      vLbl.style.cssText = 'font-size:9px;color:var(--t2);text-align:center;margin-bottom:2px';
+      vLbl.textContent = hTot>=1e6 ? '$'+(hTot/1e6).toFixed(1)+'M' : '$'+Math.round(hTot/1000)+'K';
+      col.appendChild(vLbl);
+    }
     col.appendChild(stack);
     col.appendChild(lbl);
     chart.appendChild(col);
